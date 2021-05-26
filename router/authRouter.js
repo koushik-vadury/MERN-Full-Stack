@@ -1,20 +1,14 @@
 const express = require("express");
 const router = express.Router();
 const bcrypt = require("bcryptjs");
-
 const User = require("../models/userSchema");
+const cors = require("cors");
+const dotenv = require("dotenv");
+dotenv.config({ path: "../config.env" });
+const auth = require("../middleware/auth");
 
 router.get("/", (req, res) => {
   res.send("this is home page");
-});
-
-router.get("/about", (req, res) => {
-  res.send("this is about page");
-});
-
-router.get("/database", (req, res) => {
-  const data = User.find();
-  res.send(data);
 });
 
 router.post("/signin", async (req, res) => {
@@ -25,18 +19,15 @@ router.post("/signin", async (req, res) => {
   try {
     const userExits = await User.findOne({ email: email });
 
-    const token = await userExits.getJwtToken();
-    
-    console.log(token);
-
-    res.cookie("jwt", token, {
-      httpOnly: true,
-      expires: new Date(Date.now() + 50000),
-    });
-
     if (userExits) {
       const isMatch = await bcrypt.compare(password, userExits.password);
       if (isMatch) {
+        let token = await userExits.getJwtToken();
+        res.cookie("jwt_token", token, {
+          expires: new Date(Date.now() + 2456765),
+          httpOnly: true,
+          // sameSite: true,
+        });
         res.status(201).json({ message: "User Login Successfully" });
       }
     } else {
@@ -44,6 +35,7 @@ router.post("/signin", async (req, res) => {
     }
   } catch (err) {
     console.log(err);
+    res.status(422).json({ error: "Email And Password Are Not Matched" });
   }
 });
 
@@ -77,13 +69,38 @@ router.post("/registration", async (req, res) => {
       const data = await user.save();
       if (data) {
         res.status(201).json({ message: "User Registration Successfully" });
-      } else {
-        res.status(500).json({ error: "User Registration Failed" });
       }
     }
   } catch (err) {
     console.log(err);
   }
+});
+
+router.get("/about", auth, (req, res) => {
+  res.send(req.isMatch);
+});
+
+router.post("/contact", auth, async (req, res) => {
+  const { name, email, phone, message } = req.body;
+
+  if (!name || !email || !phone || !message) {
+    return res.json({ error: "Please Fill The Field " });
+  }
+  try {
+    const userContact = await User.findOne({ _id: req._id });
+    if (userContact) {
+      const userMessage = userContact.addMessage(name, email, phone, message);
+      // await userMessage.save();
+      res.status(200).json({ message: "Message Sent Successfully" });
+    }
+  } catch (err) {
+    console.log(err);
+  }
+});
+
+router.get("/logout", async (req, res) => {
+  await res.clearCookie("jwt_token");
+  await res.status(200).send("logout Successfully");
 });
 
 module.exports = router;

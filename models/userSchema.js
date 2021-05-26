@@ -29,11 +29,6 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: true,
     trim: true,
-    // validate(value) {
-    //   if (!validator.isStrongPassword(value)) {
-    //     throw new Error("Password not Correct");
-    //   }
-    // },
   },
   cpassword: {
     type: String,
@@ -52,11 +47,36 @@ const userSchema = new mongoose.Schema({
       },
     },
   ],
+  messages: [
+    {
+      name: {
+        type: String,
+        required: true,
+        trim: true,
+      },
+      email: {
+        type: String,
+        required: true,
+        trim: true,
+        unique: true,
+      },
+      phone: {
+        type: Number,
+        required: true,
+        trim: true,
+      },
+      message: {
+        type: String,
+        required: true,
+        trim: true,
+      },
+    },
+  ],
 });
 
 userSchema.methods.getJwtToken = async function () {
   try {
-    const token = jwt.sign({ _id: this._id }, process.env.SCQURE_KEY);
+    let token = jwt.sign({ _id: this._id }, process.env.SCQURE_KEY);
     this.tokens = this.tokens.concat({ token: token });
     await this.save();
     return token;
@@ -64,8 +84,11 @@ userSchema.methods.getJwtToken = async function () {
     console.log(`Token Not Generated `);
   }
 };
-
-
+userSchema.methods.addMessage = async function (name, email, phone, message) {
+  this.messages = this.messages.concat({ name, phone, email, message });
+  await this.save();
+  return this.messages; 
+};
 
 userSchema.pre("save", async function (next) {
   if (this.isModified("password")) {
